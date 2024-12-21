@@ -7,7 +7,10 @@ import os
 load_dotenv()
 
 # Backend URL from environment variable
-BACKEND_URL = os.getenv("BACKEND_URL")
+# BACKEND_URL = os.getenv("BACKEND_URL")
+
+# Fetch BACKEND_URL from secrets
+BACKEND_URL = st.secrets["BACKEND_URL"]
 
 # Set up the app layout
 st.set_page_config(layout="wide")
