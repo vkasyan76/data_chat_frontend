@@ -1,0 +1,15 @@
+# Exclude Python virtual environment
+venv/
+
+# Exclude environment variables file
+.env
+
+# Exclude Python cache files
+__pycache__/
+
+# Exclude ggshield cache
+.cache_ggshield/
+
+# Exclude Backup folder
+Backup/
+
