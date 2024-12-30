@@ -169,7 +169,7 @@ if st.session_state.data_source_visible:
                 if user_df is not None:
                     st.session_state.current_data = user_df
                     st.session_state.data_source_visible = False
-                    st.experimental_rerun()  # Updated to use st.experimental_rerun()
+                    st.rerun()  # Use st.rerun() as per your Streamlit version
     
     elif selected_option == "Use pre-loaded data":
         if st.button("Load Data"):
@@ -178,7 +178,7 @@ if st.session_state.data_source_visible:
                 if airtable_df is not None:
                     st.session_state.current_data = airtable_df
                     st.session_state.data_source_visible = False
-                    st.experimental_rerun()
+                    st.rerun()
 
 # Display the loaded data if available
 if st.session_state.current_data is not None:
@@ -260,12 +260,13 @@ if st.session_state.current_data is not None:
             # Clear Chat Button with unique key
             if st.button("Clear Chat", key="clear_chat_button_unique"):
                 st.session_state.chat_history = []
+                st.rerun()  # Use st.rerun() as per your Streamlit version
 
     with right_col:
         # Add a clear button that looks like an X in the top right
         if st.button("✖️", help="Clear current data"):
             clear_data()
-            st.experimental_rerun()
+            st.rerun()  # Use st.rerun() as per your Streamlit version
 
         # Display the data table
         st.dataframe(st.session_state.current_data, height=650, use_container_width=True)
