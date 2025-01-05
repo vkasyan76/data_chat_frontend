@@ -43,8 +43,11 @@ def process_user_data(uploaded_file):
         elif uploaded_file.name.endswith(".xlsx"):
             df = pd.read_excel(uploaded_file)
             # Convert all datetime columns to string (ISO format)
+            # for col in df.select_dtypes(include=['datetime64', 'datetime']):
+            #     df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Modify the Date Formatting to Exclude Time:
             for col in df.select_dtypes(include=['datetime64', 'datetime']):
-                df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                df[col] = df[col].dt.strftime('%d/%m/%Y')  # Match Excel format  
         else:
             st.error("Unsupported file format. Please upload a CSV or Excel file.")
             return None
@@ -97,6 +100,7 @@ def clear_data():
 st.set_page_config(layout="wide", page_title="AI-Powered Data Chat & Chart Generator")
 
 # Backend URL (FastAPI server)
+# BACKEND_URL = "http://127.0.0.1:8000"  
 # Replace with your backend URL if different
 BACKEND_URL = st.secrets["BACKEND_URL"]  # Ensure this is set in Streamlit secrets
 
@@ -162,7 +166,8 @@ left_col, right_col = st.columns([2, 3], gap="small")
 with left_col:
     # Mode Selection Dropdown with no label
     mode_options = ["Conversation", "Chart Generation"]
-    selected_mode = st.selectbox("", options=mode_options, index=1, key="mode_selection")
+    st.markdown('<div class="top-selectbox">', unsafe_allow_html=True)
+    selected_mode = st.selectbox("Select Mode", options=mode_options, index=1, key="mode_selection", label_visibility="collapsed")
     st.session_state.selected_tab = selected_mode  # Update session state
 
     # Depending on selected_tab and data loaded, show forms
@@ -184,9 +189,10 @@ with left_col:
                 instruction = st.text_input(
                     "Chart Instruction",
                     placeholder="Type your chart requirement here...",
-                    disabled=True
+                    disabled=True,
+                    label_visibility="collapsed"
                 )
-                ctype = st.selectbox("Select chart type:", ["Bar","Area","Pie", "Line", "Scatter"], disabled=True)
+                ctype = st.selectbox("Select chart type:", ["Bar","Area","Pie", "Line", "Scatter"], disabled=True, label_visibility="collapsed")
                 gen_btn = st.form_submit_button("Generate Chart", disabled=True)
             st.info("Please load data from the right to enable chart generation.")
     else:
@@ -366,10 +372,11 @@ with right_col:
         # st.subheader("Data Source Selection")
         
         # Define the options for the selectbox
-        data_source_options = ["Select an option", "Upload data (CSV or Excel file)", "Use pre-loaded data"]
+        st.markdown('<div class="top-selectbox">', unsafe_allow_html=True)
+        data_source_options = ["Select Data Source", "Upload data (CSV or Excel file)", "Use pre-loaded data"]
         
         # Create a selectbox for data source selection
-        selected_option = st.selectbox("", options=data_source_options, key="data_source_selection")
+        selected_option = st.selectbox("Select Data Source", options=data_source_options, key="data_source_selection", label_visibility="collapsed")
         
         if selected_option == "Upload data (CSV or Excel file)":
             st.markdown("### Upload CSV or Excel File")

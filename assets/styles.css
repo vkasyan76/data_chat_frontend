@@ -30,6 +30,21 @@
   line-height: 1.1;
 }
 
+/* Adjust padding for Streamlit selectbox */
+.stSelectbox {
+  margin-top: 0px; /* Add spacing below the navbar */
+}
+
+/* Adjust padding only for the top selectboxes (not inside forms) */
+.top-selectbox {
+  margin-top: 27px; /* Add space below the navbar for top-level selectboxes */
+}
+
+/* Hide labels for all text inputs and selectboxes inside Streamlit forms */
+.stForm label {
+  display: none !important;
+}
+
 /* Adjust the main content to account for the navbar's height */
 .main-content {
   padding-top: 120px; /* Ensure main content starts below the navbar */
