@@ -6,6 +6,10 @@ import pandas as pd
 import os
 import base64
 import matplotlib.pyplot as plt
+#-----------
+import numpy as np
+from io import BytesIO
+import xlsxwriter
 
 # ---------------------------
 # Helper Functions
@@ -90,6 +94,7 @@ def clear_data():
     st.session_state.data_source_visible = True
     st.session_state.chat_history = []
     st.session_state.chart_history = []
+    st.session_state.pivot_history = []
     st.session_state.selected_tab = "Conversation"
 
 # ---------------------------
@@ -100,9 +105,9 @@ def clear_data():
 st.set_page_config(layout="wide", page_title="AI-Powered Data Chat & Chart Generator")
 
 # Backend URL (FastAPI server)
-# BACKEND_URL = "http://127.0.0.1:8000"  
+BACKEND_URL = "http://127.0.0.1:8000"  
 # Replace with your backend URL if different
-BACKEND_URL = st.secrets["BACKEND_URL"]  # Ensure this is set in Streamlit secrets
+# BACKEND_URL = st.secrets["BACKEND_URL"]  # Ensure this is set in Streamlit secrets
 
 # Inject custom CSS
 css_path = os.path.join("assets", "styles.css")
@@ -150,6 +155,9 @@ if 'chat_history' not in st.session_state:
 if 'chart_history' not in st.session_state:
     st.session_state.chart_history = []
 
+if 'pivot_history' not in st.session_state:
+    st.session_state.pivot_history = []    
+
 if 'selected_tab' not in st.session_state:
     st.session_state.selected_tab = "Chart Generation"
 
@@ -165,9 +173,9 @@ left_col, right_col = st.columns([2, 3], gap="small")
 
 with left_col:
     # Mode Selection Dropdown with no label
-    mode_options = ["Conversation", "Chart Generation"]
+    mode_options = ["Conversation", "Chart Generation", "Pivot Table"]
     st.markdown('<div class="top-selectbox">', unsafe_allow_html=True)
-    selected_mode = st.selectbox("Select Mode", options=mode_options, index=1, key="mode_selection", label_visibility="collapsed")
+    selected_mode = st.selectbox("Select Mode", options=mode_options, index=2, key="mode_selection", label_visibility="collapsed")
     st.session_state.selected_tab = selected_mode  # Update session state
 
     # Depending on selected_tab and data loaded, show forms
@@ -195,6 +203,20 @@ with left_col:
                 ctype = st.selectbox("Select chart type:", ["Bar","Area","Pie", "Line", "Scatter"], disabled=True, label_visibility="collapsed")
                 gen_btn = st.form_submit_button("Generate Chart", disabled=True)
             st.info("Please load data from the right to enable chart generation.")
+
+        # Pivot table block
+        elif st.session_state.selected_tab == "Pivot Table":
+            with st.form(key="pivot_form_disabled", clear_on_submit=True):
+                pivot_instruction = st.text_input(
+                    "Pivot / Aggregation Instruction",
+                    placeholder="Type your pivot requirement here...",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+                pivot_submit_btn = st.form_submit_button("Generate Pivot Table", disabled=True)
+            st.info("Please load data from the right to enable pivot table generation.")        
+
+            
     else:
         if st.session_state.selected_tab == "Conversation":
             # st.markdown("### Conversation")
@@ -242,9 +264,12 @@ with left_col:
                 """
                 ]
                 # Iterate through chat history in pairs (User and Assistant)
-                for i in range(0, len(st.session_state.chat_history), 2):
-                    user_msg = st.session_state.chat_history[i]
-                    ai_msg = st.session_state.chat_history[i + 1] if i + 1 < len(st.session_state.chat_history) else None
+                # Reverse chat history in chunks of two (Q + A)
+                for i in range(len(st.session_state.chat_history) - 1, -1, -2):
+                    # Display User question first
+                    user_msg = st.session_state.chat_history[i - 1] if i > 0 else None
+                    ai_msg = st.session_state.chat_history[i]
+
                     
                     if user_msg and user_msg['role'] == 'user':
                         chat_html_list.append(
@@ -257,11 +282,11 @@ with left_col:
                 
                 # Append closing div and scrolling script
                 chat_html_list.append("""
-                </div>
-                <script>
-                var chatDiv = window.parent.document.querySelector('.scrollable-chat');
-                if (chatDiv) chatDiv.scrollTop = chatDiv.scrollHeight;  // Scroll to bottom
-                </script>
+                    </div>
+                    <script>
+                    var chatDiv = window.parent.document.querySelector('.scrollable-chat');
+                    if (chatDiv) chatDiv.scrollTop = 0;  // Keep scroll at the top
+                    </script>
                 """)
 
                 # Join the list to produce final HTML
@@ -365,6 +390,93 @@ with left_col:
                     else:
                         st.dataframe(df_chart)
     
+                    st.markdown("---")
+
+        # Pivot Table Block
+        elif st.session_state.selected_tab == "Pivot Table":
+            # Pivot Table Form
+            with st.form(key="pivot_form", clear_on_submit=True):
+                pivot_instruction = st.text_input(
+                    "Pivot / Aggregation Instruction",
+                    placeholder="Type your chart requirement here...",
+                    key="pivot_instruction_input"
+                )
+                pivot_submit_btn = st.form_submit_button("Generate Pivot Table")
+
+            # 1) On form submission
+            if pivot_submit_btn and pivot_instruction.strip():
+                with st.spinner("Generating pivot table..."):
+                    df_records = st.session_state.current_data.to_dict(orient="records")
+                    payload = {
+                        "instruction": pivot_instruction,
+                        "data": df_records
+                    }
+                    try:
+                        r = requests.post(f"{BACKEND_URL}/generate_table/", json=payload)
+                        if r.status_code == 200:
+                            body = r.json()
+                            df_list = body.get("df_final", [])
+                            err = body.get("error")
+                            if err:
+                                st.error(err)
+                            else:
+                                df_table = pd.DataFrame(df_list)
+                                # 2) Add to pivot_history
+                                st.session_state.pivot_history.append({
+                                    "instruction": pivot_instruction,
+                                    "df_table": df_table
+                                })
+                        else:
+                            det = r.json().get("detail","Unknown error.")
+                            st.error(f"Error: {det}")
+                    except Exception as e:
+                        st.error(f"Failed to process pivot: {str(e)}")
+
+            # 3) Display all generated pivot tables
+            if len(st.session_state.pivot_history) > 0:
+                for idx, entry in enumerate(reversed(st.session_state.pivot_history)):
+                    st.markdown(f"**Instruction**: {entry['instruction']}")
+
+                    df_pivot = entry["df_table"]
+
+                    # 1) Insert Totals row (if not empty)
+                    if not df_pivot.empty:
+                        numeric_cols = df_pivot.select_dtypes(include=[np.number]).columns
+                        totals_row = df_pivot[numeric_cols].sum()
+                        totals_df = pd.DataFrame([totals_row], columns=numeric_cols)
+                        totals_df.insert(0, df_pivot.columns[0], "Total")
+                        df_pivot = pd.concat([df_pivot, totals_df], ignore_index=True)
+
+                    # 2) Convert pivot table to Excel
+
+                    output = BytesIO()
+                    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                        df_pivot.to_excel(writer, index=False, sheet_name="PivotData")
+
+                    excel_data = output.getvalue()
+
+                    # 3) Single button: “Download Excel”
+                    st.download_button(
+                        label="Download to Excel", 
+                        data=excel_data,
+                        file_name=f"pivot_{idx}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"download_excel_{idx}"  # unique key if multiple pivot tables
+                    )
+
+                    # 4) If pivot is empty or has “Error”
+                    if df_pivot.empty or df_pivot.shape[1] == 0:
+                        st.error("No data found. Please try rephrasing your instruction.")
+                        st.markdown("---")
+                        continue
+
+                    if "Error" in df_pivot.columns:
+                        st.error(df_pivot["Error"].iloc[0])
+                        st.markdown("---")
+                        continue
+
+                    # 5) Finally, show the pivot table
+                    st.dataframe(df_pivot, use_container_width=True)
                     st.markdown("---")
 
 with right_col:
