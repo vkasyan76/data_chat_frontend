@@ -105,9 +105,10 @@ def clear_data():
 st.set_page_config(layout="wide", page_title="AI-Powered Data Chat & Chart Generator")
 
 # Backend URL (FastAPI server)
-BACKEND_URL = "http://127.0.0.1:8000"  
+# BACKEND_URL = "http://127.0.0.1:8000"  
 # Replace with your backend URL if different
-# BACKEND_URL = st.secrets["BACKEND_URL"]  # Ensure this is set in Streamlit secrets
+BACKEND_URL = st.secrets["BACKEND_URL"]  
+# # Ensure this is set in Streamlit secrets
 
 # Inject custom CSS
 css_path = os.path.join("assets", "styles.css")
